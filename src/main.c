@@ -2,6 +2,7 @@
 #define HEIGHT 40
 #include<ncurses.h>
 #include<math.h>
+#include<stdlib.h>
 
 char canvas[HEIGHT][WIDTH];
 void canvas_draw(void); 
@@ -17,6 +18,8 @@ enum Tool {
     TOOL_LINE,
     TOOL_CIRCLE,
     TOOL_ERASER,
+    TOOL_TRI,
+
 };
 
 typedef struct {
@@ -45,6 +48,9 @@ char* tool_name(enum Tool tool ){
             break;
         case(TOOL_ERASER):
             return "Eraser";
+            break;
+        case(TOOL_TRI):
+            return "Triangle";
             break;
     }
 
@@ -89,6 +95,37 @@ void circ_draw(int startx , int starty , int endx , int endy){
 
         }
     }
+}
+
+void draw_line(int x0 , int y0 , int x1 , int y1 ){
+    int dx = abs(x1-x0);
+    int dy = abs(y1-y0);
+
+    int err = dx-dy; //you get the intial error between the coordinates of your source and destination
+
+    int sx = (x0<x1)? 1 : -1; //move one step forward if x1 lies ahead of x0 , else one step backwarrd
+    int sy = (y0<y1) ? 1 : -1;// same as backward
+
+    while(1){
+        if (x0 >= 0 && x0 < WIDTH && y0 >= 0 && y0<HEIGHT){
+            canvas[y0][x0] = '*';
+        }
+        if (x0 == x1 && y0 == y1) break;
+        int e2 = 2 * err; // only deal with integers
+
+        if (e2 > -dy){ // checking to see if the error accumulated is small enough in the negative y direction , that moving in x , will not effect the line
+            x0 += sx; // we move in x , if the error accumulated in the negative y direction isn't too small.
+            err -= dy; //moving one step in x , puts us below the actual line that you need , therefore we increase the error in the negative x direction , so we can move correctly later on
+            
+        }
+        if(e2 < dx){ // checking to see , if the error accumulated in the x direction is small enough that we can move upwards
+            y0 += sy; //if the error accumulated is lesser in the x direction , we move in y , which gains us x coordinates
+            err += dx; // Since moving 1 step in y , we are above the actual line that we need to be on , we increase the amount of error in the x direction , to force us to draw correctly later on.
+        }
+
+
+    }
+
 }
 
 
@@ -138,7 +175,7 @@ int main(){
 
         mvprintw(HEIGHT+1 , 0 , "Current Tool: %s" , tool_name(cur_tool));
     
-        mvprintw(HEIGHT+3, 0 , "Press 'p' for Pencil tool\nPress 'r' for Rectangle tool\nPress 'c' for Circle tool\nPress 'e' for Eraser tool");
+        mvprintw(HEIGHT+3, 0 , "Press 'l' for line tool\nPress 'r' for Rectangle tool\nPress 'c' for Circle tool\nPress 't' for Triangle\nPress 'e' for Eraser tool");
         refresh();
         int ch = getch();
 
@@ -175,6 +212,9 @@ int main(){
             case 'e':
                 cur_tool = TOOL_ERASER;
                 break;
+            case 't':
+                cur_tool = TOOL_TRI;
+                break;
             case KEY_MOUSE:
                 if(getmouse(&mouse_ev) == OK){
                     mvprintw(0 , WIDTH+3 , "Mouse event: %lu" , mouse_ev.bstate);
@@ -203,11 +243,15 @@ int main(){
                     }
                     else{
                         switch(pend.curtool){
+                            case TOOL_LINE:
+                                draw_line(pend.startx , pend.starty , cursor_x , cursor_y);
+                                break;
                             case TOOL_RECT:
                                 draw_rect(pend.startx , pend.starty , cursor_x , cursor_y);
                                 break;
                             case TOOL_CIRCLE:
                                 circ_draw(pend.startx , pend.starty , cursor_x , cursor_y);
+                          
                             
                         }
                         pend.active = 0;
